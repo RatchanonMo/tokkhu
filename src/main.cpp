@@ -63,7 +63,7 @@ void sendSmokeAlert()
         http.addHeader("Content-Type", "application/json"); // Set content type to JSON
 
         // Create JSON payload
-         String jsonPayload = "{\"message\": \"# SMOKE DETECTED! 💨💨\", \"imageUrl\": \"\"}";
+        String jsonPayload = "{\"message\": \"# SMOKE DETECTED! 💨💨\", \"imageUrl\": \"\"}";
         int httpResponseCode = http.POST(jsonPayload);
 
         if (httpResponseCode > 0)
@@ -122,6 +122,78 @@ void loop()
     lcd.setCursor(0, 1);
     lcd.print("Humi : ");
     lcd.print(h);
+
+    static float lastTemp = 0;
+    static float lastHum = 0;
+
+    if (t != lastTemp || h != lastHum)
+    {
+        if (WiFi.status() == WL_CONNECTED)
+        {
+            HTTPClient http;
+            http.begin("https://double-table.vercel.app/api/temper");
+            http.addHeader("Content-Type", "application/json");
+
+            String jsonPayload = "{\"temperature\": " + String(t) + ", \"humidity\": " + String(h) + "}";
+            int httpResponseCode = http.POST(jsonPayload);
+
+            if (httpResponseCode > 0)
+            {
+                Serial.println("POST request sent. Response:");
+                Serial.println(http.getString());
+            }
+            else
+            {
+                Serial.print("Error in POST request: ");
+                Serial.println(httpResponseCode);
+            }
+
+            http.end();
+        }
+        else
+        {
+            Serial.println("WiFi not connected. Unable to send POST request.");
+        }
+
+        lastTemp = t;
+        lastHum = h;
+    }
+
+
+    static JsonArray lastClass;
+
+    if (currentClass != lastClass)
+    {
+        if (WiFi.status() == WL_CONNECTED)
+        {
+            HTTPClient http;
+            http.begin("https://double-table.vercel.app/api/mongo-insert");
+            http.addHeader("Content-Type", "application/json");
+
+            String jsonPayload;
+            serializeJson(currentClass, jsonPayload);
+            int httpResponseCode = http.POST(jsonPayload);
+
+            if (httpResponseCode > 0)
+            {
+                Serial.println("POST request sent. Response:");
+                Serial.println(http.getString());
+            }
+            else
+            {
+                Serial.print("Error in POST request: ");
+                Serial.println(httpResponseCode);
+            }
+
+            http.end();
+        }
+        else
+        {
+            Serial.println("WiFi not connected. Unable to send POST request.");
+        }
+
+        lastClass = currentClass;
+    }
 
     // Serial.println("Smoke sensor value:");
     Serial.println(analogRead(SMOKE_PIN));
